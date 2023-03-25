@@ -9,9 +9,7 @@
 // 2) f(x0 + del x) = f(x0) + f`(x0 + del_x/2) * del_x
 
 #include <iostream>
-//#include <array>
 #include <vector>
-//#include <numeric>
 #include <utility>
 #include <functional>
 #include <string>
@@ -22,9 +20,9 @@ auto euler_method(const double &f, const std::function<double(double)> &f_deriva
 
 auto euler_method(const double &f, const double &f_derivative, const double &delta_x) -> double;
 
-auto improved_euler(const double &f, const std::function<double(double)> &f_derivative, const double &delta_x) -> double;
+/*auto improved_euler(const double &f, const std::function<double(double)> &f_derivative, const double &delta_x) -> double;
 
-auto improved_euler(const double &f, const double &f_derivative, const double &delta_x) -> double;
+auto improved_euler(const double &f, const double &f_derivative, const double &delta_x) -> double;*/
 
 class Point {
     const double delta = 0.1;
@@ -32,10 +30,8 @@ class Point {
     double x;
     double y;
     double mass;
-    double v_x = 0;
-    double v_y = 0;
-    double a_x = 0;
-    double a_y = 0;
+    std::pair<double, double> v;
+    std::pair<double, double> a;
     std::vector<std::pair<double, double>> forces;
 public:
     enum class SolvingMethod {EULER, IMPROVED_EULER};
@@ -44,8 +40,12 @@ public:
         this->x = x;
         this->y = y;
         this->mass = mass;
-        forces.emplace_back(0.0,-G * mass);
-        forces.emplace_back(0.0, -q * v_y);
+        this->v.first = 0.0;
+        this->v.second = 0.0;
+        this->a.first = 0.0;
+        this->a.second = 0.0;
+        forces.emplace_back(0.0,-G * mass); // apply gravitation
+        forces.emplace_back(0.0, -q * v.second); // apply resistance
     }
 
     std::pair<double,double> get_position() const {
@@ -64,26 +64,56 @@ public:
 
         if (method == SolvingMethod::EULER) {
             acceleration = std::make_pair(
-            euler_method(a_x, [force,this](auto val) -> double {return force.first/mass;}, delta),
-            euler_method(a_y, [force,this](auto val) -> double {return force.second/mass;}, delta)
+            euler_method(a.first, [force,this](auto val) -> double {return force.first/mass;}, delta),
+            euler_method(a.second, [force,this](auto val) -> double {return force.second/mass;}, delta)
             );
             velocity = std::make_pair(
-            euler_method(v_x,acceleration.first, delta),
-            euler_method(v_y,acceleration.second,delta)
+            euler_method(v.first,acceleration.first, delta),
+            euler_method(v.second,acceleration.second,delta)
             );
             s = std::make_pair(
             euler_method(x,velocity.first,delta),
             euler_method(y,velocity.second,delta)
             );
         } else {
+            auto half_accel = std::make_pair(
+            euler_method(a.first, [force,this](auto val) -> double {return force.first/mass;}, delta/2.0),
+            euler_method(a.second, [force,this](auto val) -> double {return force.second/mass;}, delta/2.0)
+            );
+            acceleration = std::make_pair(
+            euler_method(half_accel.first, [force,this](auto val) -> double {return force.first/mass;}, delta),
+            euler_method(half_accel.second, [force,this](auto val) -> double {return force.second/mass;}, delta)
+            );
 
+            auto half_vel = std::make_pair(
+            euler_method(v.first,acceleration.first, delta/2.0),
+            euler_method(v.second,acceleration.second,delta/2.0)
+            );
+            /*velocity = std::make_pair(
+            improved_euler(v_x,acceleration.first, delta),
+            improved_euler(v_y,acceleration.second,delta)
+            );*/
+            velocity = std::make_pair(
+            euler_method(half_vel.first,acceleration.first, delta),
+            euler_method(half_vel.second,acceleration.second,delta)
+            );
+            auto half_s = std::make_pair(
+            euler_method(x,velocity.first,delta),
+            euler_method(y,velocity.second,delta)
+            );
+            /*s = std::make_pair(
+            improved_euler(x,velocity.first,delta),
+            improved_euler(y,velocity.second,delta)
+            );*/
+            s = std::make_pair(
+            euler_method(half_s.first,velocity.first,delta),
+            euler_method(half_s.second,velocity.second,delta)
+            );
         }
         x = s.first;
         y = s.second;
-        v_x = velocity.first;
-        v_y = velocity.second;
-        a_x = acceleration.first;
-        a_y = acceleration.second;
+        v = velocity;
+        a = acceleration;
     }
 
 private:
@@ -100,13 +130,6 @@ private:
         forces.push_back(force);
     }
 
-    /*auto velocity() -> double {
-
-    }
-
-    auto acceleration(double prev) -> double {
-
-    }*/
 };
 
 int main() {
@@ -119,8 +142,8 @@ int main() {
     std::cout << "mass: " << std::to_string(point.get_mass()) << '\n';
 
     while (point.get_position().second > 0) {
-        point.update(Point::SolvingMethod::EULER);
-        //point.update(Point::SolvingMethod::IMPROVED_EULER);
+        //point.update(Point::SolvingMethod::EULER);
+        point.update(Point::SolvingMethod::IMPROVED_EULER);
         std::cout << pair_to_string(point.get_position()) << '\n';
     }
 
@@ -135,19 +158,10 @@ auto euler_method(const double &f, const double &f_derivative, const double &del
     return f + f_derivative * delta_x;
 }
 
-auto improved_euler(const double &f, const std::function<double(double)> &f_derivative, const double &delta_x) -> double {
-    return f + f_derivative(f) * delta_x;
+/*auto improved_euler(const double &f, const std::function<double(double)> &f_derivative, const double &delta_x) -> double {
+    return f + euler_method(f, f_derivative, delta_x/2.0) * delta_x;
 }
 
 auto improved_euler(const double &f, const double &f_derivative, const double &delta_x) -> double {
-    return f + f_derivative * delta_x;
-}
-
-
-// remove later:
-auto
-improved_euler(const std::function<double(double)> &f, const std::function<double(double)> &f_derivative,
-               double x0, double delta_x)
--> double {
-    return f(x0) + f_derivative(x0 + delta_x/2.0) * delta_x;
-}
+    return f + euler_method(f, f_derivative, delta_x/2.0) * delta_x;
+}*/
