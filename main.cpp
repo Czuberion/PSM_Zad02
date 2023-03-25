@@ -35,15 +35,11 @@ public:
         this->mass = mass;
     }
 
-    int get_x() const {
-        return x;
+    std::pair<double,double> get_position() const {
+        return std::make_pair(x,y);
     }
 
-    int get_y() const {
-        return y;
-    }
-
-    int get_mass() const {
+    double get_mass() const {
         return mass;
     }
 
