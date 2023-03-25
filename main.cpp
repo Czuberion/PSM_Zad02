@@ -9,6 +9,10 @@
 // 2) f(x0 + del x) = f(x0) + f`(x0 + del_x/2) * del_x
 
 #include <iostream>
+#include <array>
+#include <vector>
+#include <numeric>
+#include <utility>
 
 class Point {
     int x;
@@ -31,6 +35,20 @@ public:
 
     int get_mass() const {
         return mass;
+    }
+
+    void update() {
+
+    }
+
+private:
+    std::pair<int, int> net_force(const std::vector<std::pair<int,int>> &forces) {
+        std::pair<int,int> force = std::make_pair(0,0);
+        std::for_each(forces.begin(), forces.end(), [&force] (auto a) -> void {
+            force.first += a.first;
+            force.second += a.second;
+        });
+        return force;
     }
 };
 
